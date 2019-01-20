@@ -104,7 +104,6 @@ namespace VRTK
         #endregion
         #region Private fields
 
-        private bool isHand = false;
         private Transform rightHand;
         private Transform leftHand;
         private Transform currentHand;
@@ -175,6 +174,9 @@ namespace VRTK
             }
             rightHand.gameObject.SetActive(true);
             leftHand.gameObject.SetActive(true);
+
+            SetMove();
+            SetHand();
         }
 
         private void OnDestroy()
@@ -197,18 +199,6 @@ namespace VRTK
                 }
             }
 
-            if (Input.GetKeyDown(handsOnOff))
-            {
-                if (isHand)
-                {
-                    SetMove();
-                }
-                else
-                {
-                    SetHand();
-                }
-            }
-
             if (Input.GetKeyDown(changeHands))
             {
                 if (currentHand.name == "LeftHand")
@@ -225,12 +215,8 @@ namespace VRTK
                 }
             }
 
-            if (isHand)
             {
                 UpdateHands();
-            }
-            else
-            {
                 UpdateRotation();
                 if(Input.GetKeyDown(distancePickupRight) && Input.GetKey(distancePickupModifier))
                 {
@@ -281,72 +267,35 @@ namespace VRTK
             }
         }
 
+        float _distance = 2.0f;
         private void UpdateHands()
         {
-            Vector3 mouseDiff = GetMouseDelta();
-
-            if (IsAcceptingMouseInput())
-            {
-                if (Input.GetKey(rotationPosition)) //Rotation
-                {
-                    if (Input.GetKey(changeAxis))
-                    {
-                        Vector3 rot = Vector3.zero;
-                        rot.x += (mouseDiff * handRotationMultiplier).y;
-                        rot.y += (mouseDiff * handRotationMultiplier).x;
-                        currentHand.transform.Rotate(rot * Time.deltaTime);
-                    }
-                    else
-                    {
-                        Vector3 rot = Vector3.zero;
-                        rot.z += (mouseDiff * handRotationMultiplier).x;
-                        rot.x += (mouseDiff * handRotationMultiplier).y;
-                        currentHand.transform.Rotate(rot * Time.deltaTime);
-                    }
-                }
-                else //Position
-                {
-                    if (Input.GetKey(changeAxis))
-                    {
-                        Vector3 pos = Vector3.zero;
-                        pos += mouseDiff * handMoveMultiplier;
-                        currentHand.transform.Translate(pos * Time.deltaTime);
-                    }
-                    else
-                    {
-                        Vector3 pos = Vector3.zero;
-                        pos.x += (mouseDiff * handMoveMultiplier).x;
-                        pos.z += (mouseDiff * handMoveMultiplier).y;
-                        currentHand.transform.Translate(pos * Time.deltaTime);
-                    }
-                }
-            }
+            var c = Camera.main;
+            Ray ray = c.ScreenPointToRay(Input.mousePosition);
+            currentHand.position = c.transform.position + ray.direction * _distance;
         }
 
+        const float _rotDegrees = 15.0f;
+        Vector3 _rot;
         private void UpdateRotation()
         {
-            Vector3 mouseDiff = GetMouseDelta();
-
-            if (IsAcceptingMouseInput())
+            if (Input.GetKeyDown(KeyCode.DownArrow))
             {
-                Vector3 rot = transform.localRotation.eulerAngles;
-                rot.y += (mouseDiff * playerRotationMultiplier).x;
-                transform.localRotation = Quaternion.Euler(rot);
-
-                rot = neck.rotation.eulerAngles;
-
-                if (rot.x > 180)
-                {
-                    rot.x -= 360;
-                }
-
-                if (rot.x < 80 && rot.x > -80)
-                {
-                    rot.x += (mouseDiff * playerRotationMultiplier).y * -1;
-                    rot.x = Mathf.Clamp(rot.x, -79, 79);
-                    neck.rotation = Quaternion.Euler(rot);
-                }
+                _rot.x += _rotDegrees;
             }
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                _rot.x -= _rotDegrees;
+            }
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                _rot.y -= _rotDegrees;
+            }
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                _rot.y += _rotDegrees;
+            }
+            transform.rotation = Quaternion.Euler(_rot);
         }
 
         private void UpdatePosition()
@@ -373,7 +322,6 @@ namespace VRTK
         private void SetHand()
         {
             Cursor.visible = false;
-            isHand = true;
             rightHand.gameObject.SetActive(true);
             leftHand.gameObject.SetActive(true);
             oldPos = Input.mousePosition;
@@ -389,7 +337,6 @@ namespace VRTK
         private void SetMove()
         {
             Cursor.visible = true;
-            isHand = false;
             if (hideHandsAtSwitch)
             {
                 rightHand.gameObject.SetActive(false);
@@ -414,6 +361,23 @@ namespace VRTK
                 oldPos = Input.mousePosition;
                 return mouseDiff;
             }
+        }
+
+        private void OnDrawGizmos()
+        {
+            var c = Camera.main;
+
+            Gizmos.color = Color.green;
+            Gizmos.matrix = c.transform.localToWorldMatrix;
+            Gizmos.DrawFrustum(Vector3.zero, 
+                Camera.main.fieldOfView, 
+                Camera.main.farClipPlane, 
+                Camera.main.nearClipPlane, 
+                Camera.main.aspect);
+            Gizmos.matrix = Matrix4x4.identity;
+
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(c.transform.position, currentHand.position);
         }
     }
 }
